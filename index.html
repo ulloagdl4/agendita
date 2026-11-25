@@ -6,7 +6,6 @@
 <title>Agendita</title>
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" href="icon-192.png">
-<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1b2a4a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -87,6 +86,7 @@ async function loadAppts(){
  appts=data||[]}
 function applyTheme(){
  document.title=salon.name+' · Reservas';
+ var mt=document.querySelector('meta[name="apple-mobile-web-app-title"]');if(mt)mt.content=salon.name;
  if(salon.color&&/^#[0-9a-fA-F]{6}$/.test(salon.color)){const r=document.documentElement.style;r.setProperty('--acc',salon.color);r.setProperty('--accInk','#ffffff');r.setProperty('--soft','color-mix(in srgb, '+salon.color+' 16%, var(--card))')}}
 function slots(di,styId,svcId){
  const d=DAYS[di],t=st(styId),dur=sv(svcId).minutes,out=[],now=new Date();
