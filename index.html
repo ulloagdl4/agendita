@@ -86,6 +86,7 @@ async function loadAppts(){
  appts=data||[]}
 function applyTheme(){
  document.title=salon.name+' · Reservas';
+ var ic=document.querySelector('link[rel="apple-touch-icon"]'),u='icon-'+salon.slug+'-180.png',im=new Image();im.onload=function(){if(ic)ic.href=u};im.src=u;
  var mt=document.querySelector('meta[name="apple-mobile-web-app-title"]');if(mt)mt.content=salon.name;
  if(salon.color&&/^#[0-9a-fA-F]{6}$/.test(salon.color)){const r=document.documentElement.style;r.setProperty('--acc',salon.color);r.setProperty('--accInk','#ffffff');r.setProperty('--soft','color-mix(in srgb, '+salon.color+' 16%, var(--card))')}}
 function slots(di,styId,svcId){
