@@ -58,7 +58,7 @@ label{font-size:14px;color:var(--mut);display:block;margin-bottom:4px}
 </div>
 <script>
 const sb=supabase.createClient('https://mljkqzhihuisqojncjau.supabase.co','sb_publishable_5PJBrEVPioYb6GtBzWmY8g_JRNj-wKt');
-const SLUG='bella-estetica';
+const SLUG=(new URLSearchParams(location.search).get('n')||'bella-estetica').toLowerCase();
 const DN=['dom','lun','mar','mié','jue','vie','sáb'],MN=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 const DAYS=[...Array(8)].map((_,i)=>{const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+i);return d});
 const tm=m=>Math.floor(m/60)+':'+String(m%60).padStart(2,'0');
@@ -71,8 +71,8 @@ const sv=id=>SV.find(x=>x.id==id),st=id=>ST.find(x=>x.id==id);
 const isAdmin=()=>location.hash=='#admin';
 async function init(){
  const {data:sa,error}=await sb.from('salons').select('*').eq('slug',SLUG).single();
- if(error||!sa){document.getElementById('app').innerHTML='<p class="err">No se pudo conectar con la base de datos. Revisa que el proyecto de Supabase esté activo.</p>';return}
- salon=sa;
+ if(error||!sa){document.getElementById('app').innerHTML='<p class="err">No encontramos este negocio. Revisa que el link esté completo. Si el link es correcto, puede que el servicio esté en pausa; intenta de nuevo en unos minutos.</p>';return}
+ salon=sa;applyTheme();
  SV=(await sb.from('services').select('*').eq('salon_id',salon.id).order('price')).data||[];
  ST=(await sb.from('stylists').select('*').eq('salon_id',salon.id).order('name')).data||[];
  const {data:{session}}=await sb.auth.getSession();user=session?session.user:null;
@@ -85,10 +85,14 @@ async function loadAppts(){
  const a=new Date(DAYS[s.oday]),b=new Date(a);b.setDate(b.getDate()+1);
  const {data}=await sb.from('appointments').select('*').eq('salon_id',salon.id).gte('starts_at',a.toISOString()).lt('starts_at',b.toISOString()).order('starts_at');
  appts=data||[]}
+function applyTheme(){
+ document.title=salon.name+' · Reservas';
+ if(salon.color&&/^#[0-9a-fA-F]{6}$/.test(salon.color)){const r=document.documentElement.style;r.setProperty('--acc',salon.color);r.setProperty('--accInk','#ffffff');r.setProperty('--soft','color-mix(in srgb, '+salon.color+' 16%, var(--card))')}}
 function slots(di,styId,svcId){
  const d=DAYS[di],t=st(styId),dur=sv(svcId).minutes,out=[],now=new Date();
  if(t.days_off.includes(d.getDay()))return out;
- for(let x=600;x+dur<=1140;x+=30){
+ const op=Math.max(salon.open_min||600,t.start_min||0),cl=Math.min(salon.close_min||1140,t.end_min||1440),stp=salon.step_min||30;
+ for(let x=op;x+dur<=cl;x+=stp){
   const a=new Date(d);a.setHours(0,x,0,0);const e=new Date(a.getTime()+dur*60000);
   if(a<=now)continue;
   if(busy.some(b=>b.sty==styId&&a<b.e&&e>b.s))continue;
@@ -98,7 +102,7 @@ function dayBtns(cur,fn,styId){return DAYS.map((d,i)=>{const n=styId?slots(i,sty
 function pickDay(i){s.day=i;s.time=null;render()}
 function pickSty(id){s.sty=id;const i=DAYS.findIndex((_,k)=>slots(k,id,s.svc).length);s.day=i<0?0:i;render()}
 function client(){
- if(s.done){const a=s.done;return `<div class="ok"><h2>${s.owner?'Cita agregada':'¡Listo, tu cita está confirmada!'}</h2><p><b>${esc(sv(a.svc).name)}</b> con ${esc(st(a.sty).name)}<br>${dl(DAYS[a.di])} a las ${tm(a.start)}</p><p>${s.owner?'Ya aparece en la agenda.':'Guarda esta pantalla. Si necesitas cambiar tu cita, avísale a la estética por WhatsApp.'}</p><button class="btn" onclick="${s.owner?'backOwner()':'reset()'}">${s.owner?'Volver a la agenda':'Agendar otra cita'}</button></div>`}
+ if(s.done){const a=s.done;return `<div class="ok"><h2>${s.owner?'Cita agregada':'¡Listo, tu cita está confirmada!'}</h2><p><b>${esc(sv(a.svc).name)}</b> con ${esc(st(a.sty).name)}<br>${dl(DAYS[a.di])} a las ${tm(a.start)}</p><p>${s.owner?'Ya aparece en la agenda.':'Guarda esta pantalla. Si necesitas cambiar tu cita, avísale al negocio por WhatsApp.'}</p><button class="btn" onclick="${s.owner?'backOwner()':'reset()'}">${s.owner?'Volver a la agenda':'Agendar otra cita'}</button></div>`}
  if(!s.svc)return `<h2>${s.owner?'Nueva cita: ¿qué servicio?':esc(salon.name)+' · ¿qué servicio quieres?'}</h2>`+SV.map(v=>`<button class="opt" onclick="s.svc='${v.id}';render()"><div><b>${esc(v.name)}</b><br><span>${v.minutes} min</span></div><b>$${v.price}</b></button>`).join('')+(s.owner?'<button class="back" onclick="backOwner()">‹ Volver a la agenda</button>':'');
  if(!s.sty)return `<button class="back" onclick="s.svc=null;render()">‹ Cambiar servicio</button><h2>¿Con quién?</h2>`+ST.map(t=>`<button class="opt" onclick="pickSty('${t.id}')"><b>${esc(t.name)}</b><span>${DAYS.some((_,i)=>slots(i,t.id,s.svc).length)?'Ver horarios':'Sin horarios'}</span></button>`).join('');
  const sl=slots(s.day,s.sty,s.svc);
@@ -123,7 +127,7 @@ async function doLogin(){
 async function logout(){await sb.auth.signOut();user=null;render()}
 function owner(){
  const mine=salon.owner_id&&user&&salon.owner_id==user.id;
- if(!mine)return `<div class="card"><b>Tu usuario todavía no está asignado a esta estética.</b><p class="empty">Falta un paso en Supabase para darte permiso de ver las citas.</p></div>`;
+ if(!mine)return `<div class="card"><b>Tu usuario todavía no está asignado a este negocio.</b><p class="empty">Falta un paso en Supabase para darte permiso de ver las citas.</p></div>`;
  const inc=appts.reduce((t,a)=>t+(sv(a.service_id)?sv(a.service_id).price:0),0);
  return `<div class="scroll"><div class="chips" style="flex-wrap:nowrap">${dayBtns(s.oday,'ownDay')}</div></div>
  <div class="stats"><div class="card"><b>${appts.length}</b><span>citas</span></div><div class="card"><b>$${inc}</b><span>ingreso estimado</span></div><button class="btn" onclick="s={...s,owner:true,svc:null,sty:null,time:null,done:null};render()">+ Nueva cita</button></div>
@@ -135,7 +139,8 @@ function wa(id){const a=appts.find(x=>x.id==id),d=new Date(a.starts_at);
  window.open('https://wa.me/52'+a.client_phone+'?text='+encodeURIComponent(m),'_blank')}
 function render(){
  const adm=isAdmin();
- document.getElementById('sub').textContent=adm?'Agenda de '+(salon?salon.name:''):'Reserva en línea';
+ document.getElementById('ttl').firstChild.textContent=salon?salon.name:'Agendita';
+ document.getElementById('sub').textContent=adm?'Agenda del negocio':'Reserva en línea';
  document.getElementById('out').style.display=adm&&user?'':'none';
  let h;
  if(adm&&!user)h=login();else if(adm&&!s.owner)h=owner();else h=(s.msg?`<p class="err">${esc(s.msg)}</p>`:'')+client();
